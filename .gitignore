@@ -1,0 +1,4 @@
+.build/
+.swiftpm/
+日计.app/
+dist/
