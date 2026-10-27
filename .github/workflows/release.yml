@@ -16,22 +16,24 @@ jobs:
       - name: Select Swift 6
         run: |
           set -euo pipefail
-          if ! swift --version 2>/dev/null | grep -q 'Swift version 6'; then
-            selected=""
-            for app in /Applications/Xcode*.app; do
-              toolchain="$app/Contents/Developer"
-              if [ -x "$toolchain/usr/bin/swift" ] && "$toolchain/usr/bin/swift" --version 2>/dev/null | grep -q 'Swift version 6'; then
+          selected=""
+          for app in /Applications/Xcode_16*.app /Applications/Xcode.app; do
+            toolchain="$app/Contents/Developer"
+            [ -x "$toolchain/usr/bin/swift" ] || continue
+            version="$(DEVELOPER_DIR="$toolchain" "$toolchain/usr/bin/swift" --version 2>&1 || true)"
+            case "$version" in
+              *"Swift version 6"*)
                 sudo xcode-select -s "$toolchain"
                 selected="$app"
                 break
-              fi
-            done
-            if [ -z "$selected" ]; then
-              echo "::error::No Swift 6 toolchain. Installed: $(ls /Applications | grep -i xcode | tr '\n' ' ')"
-              swift --version || true
-              exit 1
-            fi
+                ;;
+            esac
+          done
+          if [ -z "$selected" ]; then
+            echo "::error::No Swift 6 toolchain. Installed: $(ls /Applications | grep -i xcode | tr '\n' ' ')"
+            exit 1
           fi
+          hash -r
           swift --version
           xcode-select -p
       - name: Build DMG
