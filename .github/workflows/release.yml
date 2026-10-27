@@ -13,31 +13,21 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - name: Select Swift 6
-        run: |
-          set -euo pipefail
-          selected=""
-          for app in /Applications/Xcode_16*.app /Applications/Xcode.app; do
-            toolchain="$app/Contents/Developer"
-            [ -x "$toolchain/usr/bin/swift" ] || continue
-            version="$(DEVELOPER_DIR="$toolchain" "$toolchain/usr/bin/swift" --version 2>&1 || true)"
-            case "$version" in
-              *"Swift version 6"*)
-                sudo xcode-select -s "$toolchain"
-                selected="$app"
-                break
-                ;;
-            esac
-          done
-          if [ -z "$selected" ]; then
-            echo "::error::No Swift 6 toolchain. Installed: $(ls /Applications | grep -i xcode | tr '\n' ' ')"
-            exit 1
-          fi
-          hash -r
-          swift --version
-          xcode-select -p
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.2"
       - name: Build DMG
-        run: bash scripts/make-dmg.sh
+        run: |
+          set +e
+          echo "::notice::$(xcode-select -p) $(swift --version 2>&1 | tr '\n' ' ')"
+          bash scripts/make-dmg.sh > build.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            tail -n 20 build.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+          fi
+          exit "$code"
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*.dmg
